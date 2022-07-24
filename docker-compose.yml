@@ -1,0 +1,44 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: ./app.dockerfile
+    ports:
+      - 8080:8080
+    volumes:
+      - .:/golang-docker
+    depends_on:
+      - database
+    container_name: cake-shop-web
+    environment:
+      - 'DB_PORT=3306'
+      - 'DB_HOST=database'
+
+  database:
+    image: mysql:5.7.22
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: main
+      MYSQL_PASSWORD: main
+      MYSQL_DATABASE: privy
+    container_name: cake-shop-db
+    ports:
+      - 3306:3306
+    volumes:
+      - cake-shop-data:/var/lib/mysql 
+
+  pma:
+    image: phpmyadmin/phpmyadmin
+    depends_on:
+      - database
+    ports:
+      - 5003:80
+    environment:
+      - 'PMA_HOST=database'
+      - 'PMA_PORT=3306'
+    container_name: cake-shop-pma
+
+
+# persisted storage
+volumes:
+  cake-shop-data:
