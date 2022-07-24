@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 )
 
 var lock = &sync.Mutex{}
@@ -26,8 +27,13 @@ func DefaultConfig() mysql.Config {
 func SetUpDbConnection(config mysql.Config) *sql.DB {
 	log.Printf("Connecting to database with cfg %v", config)
 	dbConnection, err := sql.Open("mysql", config.FormatDSN())
+	for i := 0; i < 10 && err != nil; i++ {
+		log.Printf("Reconnecting.....")
+		dbConnection, err = sql.Open("mysql", config.FormatDSN())
+		time.Sleep(5 * time.Second)
+	}
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln("Can't Connect to Database")
 	}
 	if pingErr := dbConnection.Ping(); pingErr != nil {
 		log.Fatal(pingErr)
