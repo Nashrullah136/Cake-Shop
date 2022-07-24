@@ -20,7 +20,7 @@ var (
 
 func Run() {
 	router := Initialize()
-	router.Run("localhost:" + os.Getenv("APP_PORT"))
+	router.Run(":" + os.Getenv("APP_PORT"))
 }
 
 func loadEnv() {
