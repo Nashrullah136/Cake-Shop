@@ -11,7 +11,7 @@ const tableName = "cakes"
 
 //TODO: add action log
 
-type Cakes struct {
+type Cake struct {
 	ID          int     `json:"id,omitempty"`
 	Title       string  `json:"title,omitempty" validate:"required"`
 	Description string  `json:"description,omitempty,omitempty" validate:"required"`
@@ -21,17 +21,10 @@ type Cakes struct {
 	UpdatedAt   string  `json:"updated_at,omitempty"`
 }
 
-func FindAll() ([]Cakes, error) {
-	var cakes []Cakes
-	dbConnection := database.GetDbConnection()
-	rows, err := dbConnection.Query("SELECT * FROM " + tableName + " ORDER BY rating DESC, title ASC")
-	if err != nil {
-		return nil, fmt.Errorf("can't get all cakes: %v", err)
-	}
-	defer rows.Close()
-	// Loop through rows, using Scan to assign column data to struct fields.
+func convertRowsToCakes(rows *sql.Rows) ([]Cake, error) {
+	var cakes []Cake
 	for rows.Next() {
-		var cake Cakes
+		var cake Cake
 		if err := rows.Scan(&cake.ID, &cake.Title, &cake.Description, &cake.Rating, &cake.Image,
 			&cake.CreatedAt, &cake.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("can't get all cakes: %v", err)
@@ -44,8 +37,42 @@ func FindAll() ([]Cakes, error) {
 	return cakes, nil
 }
 
-func FindById(id int) (Cakes, error) {
-	var cake Cakes
+func FindPagination(page, rowPerPage int) ([]Cake, error) {
+	if page <= 0 || rowPerPage <= 0 {
+		return FindAll()
+	}
+	var cakes []Cake
+	dbConnection := database.GetDbConnection()
+	rows, err := dbConnection.Query("SELECT * FROM "+tableName+" ORDER BY rating DESC, title ASC LIMIT ?, ?",
+		rowPerPage*(page-1), rowPerPage)
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error. Can't get cakes")
+	}
+	defer rows.Close()
+	cakes, err = convertRowsToCakes(rows)
+	if err != nil {
+		return nil, err
+	}
+	return cakes, nil
+}
+
+func FindAll() ([]Cake, error) {
+	var cakes []Cake
+	dbConnection := database.GetDbConnection()
+	rows, err := dbConnection.Query("SELECT * FROM " + tableName + " ORDER BY rating DESC, title ASC")
+	if err != nil {
+		return nil, fmt.Errorf("can't get all cakes: %v", err)
+	}
+	defer rows.Close()
+	cakes, err = convertRowsToCakes(rows)
+	if err != nil {
+		return nil, err
+	}
+	return cakes, nil
+}
+
+func FindById(id int) (Cake, error) {
+	var cake Cake
 	dbConnection := database.GetDbConnection()
 	row := dbConnection.QueryRow("SELECT * FROM "+tableName+" WHERE id = ?", id)
 	if err := row.Scan(&cake.ID, &cake.Title, &cake.Description, &cake.Rating, &cake.Image, &cake.CreatedAt, &cake.UpdatedAt); err != nil {
@@ -57,7 +84,7 @@ func FindById(id int) (Cakes, error) {
 	return cake, nil
 }
 
-func Insert(newCake Cakes) (Cakes, error) {
+func Insert(newCake Cake) (Cake, error) {
 	dbConnection := database.GetDbConnection()
 	newCake.CreatedAt = time.Now().Format("2006-01-02 15:04:05")
 	newCake.UpdatedAt = time.Now().Format("2006-01-02 15:04:05")
@@ -75,7 +102,7 @@ func Insert(newCake Cakes) (Cakes, error) {
 	return newCake, nil
 }
 
-func Update(id int, newCake Cakes) error {
+func Update(id int, newCake Cake) error {
 	dbConnection := database.GetDbConnection()
 	newCake.UpdatedAt = time.Now().Format("2006-01-02 15:04:05")
 	_, err := dbConnection.Exec("UPDATE "+tableName+" SET title = ?, description = ?, rating = ?, "+

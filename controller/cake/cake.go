@@ -15,7 +15,7 @@ import (
 	"strconv"
 )
 
-func validateCake(cake modelCake.Cakes) (map[string]string, error) {
+func validateCake(cake modelCake.Cake) (map[string]string, error) {
 	en := enPackage.New()
 	uni := ut.New(en, en)
 	trans, _ := uni.GetTranslator("en")
@@ -30,7 +30,18 @@ func validateCake(cake modelCake.Cakes) (map[string]string, error) {
 }
 
 func GetAll(c *gin.Context) {
-	//TODO: add pagination
+	query := c.Request.URL.Query()
+	if len(query["page"]) != 0 && len(query["items"]) != 0 {
+		page, pageError := strconv.Atoi(query["page"][0])
+		items, itemsError := strconv.Atoi(query["items"][0])
+		if itemsError == nil && pageError == nil {
+			cakes, paginationError := modelCake.FindPagination(page, items)
+			if paginationError == nil {
+				c.IndentedJSON(http.StatusOK, cakes)
+				return
+			}
+		}
+	}
 	cakes, err := modelCake.FindAll()
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, err.Error())
@@ -55,7 +66,7 @@ func GetById(c *gin.Context) {
 }
 
 func Create(c *gin.Context) {
-	var cake modelCake.Cakes
+	var cake modelCake.Cake
 	if err := c.BindJSON(&cake); err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, err.Error())
 		return
@@ -120,7 +131,7 @@ func Update(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, oldCake)
 }
 
-func mergeCakes(dst *modelCake.Cakes, src map[string]interface{}) error {
+func mergeCakes(dst *modelCake.Cake, src map[string]interface{}) error {
 	var jsonToStruct = map[string]string{
 		"title":       "Title",
 		"description": "Description",

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -18,22 +19,12 @@ var router *gin.Engine
 func TestMain(m *testing.M) {
 	router = app.Initialize()
 	log.Print("test....")
-	//TODO: make migrateDB function util
 	result := m.Run()
 	ClearTable("cakes")
 	os.Exit(result)
 }
 
-func TestGetAllWithoutData(t *testing.T) {
-	req, _ := http.NewRequest("GET", "/cakes", nil)
-	response := ExecuteRequest(router, req)
-	err := CheckResponseCode(http.StatusOK, response.Code)
-	if err != nil {
-		t.Error(err.Error())
-	}
-}
-
-func TestGetAllWithData(t *testing.T) {
+func populateDatabase() ([]Cake, error) {
 	var cakes = []Cake{
 		{
 			ID:          1,
@@ -102,41 +93,110 @@ func TestGetAllWithData(t *testing.T) {
 	for _, cake := range cakes {
 		_, err := insertCake(cake)
 		if err != nil {
-			t.Error(err.Error())
-			return
+			return nil, err
 		}
 	}
-	req, _ := http.NewRequest("GET", "/cakes", nil)
+	return cakes, nil
+}
+
+func checkSequence(cakes []Cake) error {
+	for i, cake := range cakes {
+		if i == 0 {
+			continue
+		}
+		if cake.Rating > cakes[i-1].Rating {
+			return fmt.Errorf("Rating not in sequence. Cake rating now: %f, Cake rating before: %f",
+				cake.Rating, cakes[i-1].Rating)
+		} else if cake.Rating == cakes[i-1].Rating {
+			if cake.Title < cakes[i-1].Title {
+				return fmt.Errorf("Title not in sequence. Cake title now: %s, Cake title before: %s",
+					cake.Title, cakes[i-1].Title)
+			}
+		}
+	}
+	return nil
+}
+
+func GetALlTestSuccessScenario(url string, numberOfItem int) error {
+	req, _ := http.NewRequest("GET", url, nil)
 	response := ExecuteRequest(router, req)
 	ClearTable("cakes")
 	err := CheckResponseCode(http.StatusOK, response.Code)
 	if err != nil {
-		t.Error(err.Error())
+		return err
 	}
 	var responseStruct []Cake
 	responseByte, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		t.Error(fmt.Errorf("Failed to read response. Error: " + err.Error()))
+		return fmt.Errorf("Failed to read response. Error: " + err.Error())
 	}
 	err = json.Unmarshal(responseByte, &responseStruct)
 	if err != nil {
-		t.Error(fmt.Errorf("Failed to convert response to construct. Error: " + err.Error()))
+		return fmt.Errorf("Failed to convert response to construct. Error: " + err.Error())
 	}
-	if len(responseStruct) != len(cakes) {
-		t.Errorf("Doesn't get all data in database. Data should be %d, got %d data", len(cakes), len(responseStruct))
+	if len(responseStruct) != numberOfItem {
+		return fmt.Errorf("doesn't get all data in database. Data should be %d, got %d data", numberOfItem, len(responseStruct))
 	}
-	for i, cake := range responseStruct {
-		if i == 0 {
-			continue
-		}
-		if cake.Rating > responseStruct[i-1].Rating {
-			t.Errorf("Rating not in sequence. Cake rating now: %f, Cake rating before: %f", cake.Rating, responseStruct[i-1].Rating)
-			return
-		} else if cake.Rating == responseStruct[i-1].Rating {
-			if cake.Title < responseStruct[i-1].Title {
-				t.Errorf("Title not in sequence. Cake title now: %s, Cake title before: %s", cake.Title, responseStruct[i-1].Title)
-				return
-			}
-		}
+	if err := checkSequence(responseStruct); err != nil {
+		return err
+	}
+	return nil
+}
+
+func TestGetAllWithoutData(t *testing.T) {
+	req, _ := http.NewRequest("GET", "/cakes", nil)
+	response := ExecuteRequest(router, req)
+	err := CheckResponseCode(http.StatusOK, response.Code)
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+func TestGetAllWithData(t *testing.T) {
+	cakes, err := populateDatabase()
+	if err != nil {
+		t.Error("Fail to populate database")
+		return
+	}
+	err = GetALlTestSuccessScenario("/cakes", len(cakes))
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+}
+
+func TestGetAllValidPageAndValidItems(t *testing.T) {
+	_, err := populateDatabase()
+	if err != nil {
+		t.Error("Fail to populate database")
+		return
+	}
+	var items = 4
+	err = GetALlTestSuccessScenario("/cakes?page=1&items="+strconv.Itoa(items), items)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+}
+
+func TestGetAllWithInvalidPage(t *testing.T) {
+	cakes, err := populateDatabase()
+	if err != nil {
+		t.Error("Fail to populate database")
+		return
+	}
+	err = GetALlTestSuccessScenario("/cakes?page=-1&items=2", len(cakes))
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+}
+
+func TestGetAllWithInvalidItems(t *testing.T) {
+	cakes, err := populateDatabase()
+	if err != nil {
+		t.Error("Fail to populate database")
+		return
+	}
+	err = GetALlTestSuccessScenario("/cakes?page=-1&items=2", len(cakes))
+	if err != nil {
+		t.Errorf(err.Error())
 	}
 }
