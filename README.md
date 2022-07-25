@@ -24,6 +24,8 @@
 
 
 ## Get All Cakes
+Get all cake and sort by rating descend and title ascend. 
+If page and items url query less than 0, all cake will be returned.
 
 ### Request
 
@@ -31,8 +33,11 @@
 
   Endpoint : '/cakes'
 
+  URL Query :
+  - page type : int
+  - items type : int
+
 ### Response
-  The cake will be sort by rating descend and title ascend. 
   
   Response Body :
   
