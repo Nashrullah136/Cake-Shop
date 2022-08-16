@@ -210,6 +210,10 @@ Request Body Example:
     { //update title only
       "title": "Lemon cheesecake" 
     }
+    
+    { //rating only
+      "rating": 5.0
+    }
 
 ### Response
   
